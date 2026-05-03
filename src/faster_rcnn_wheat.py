@@ -39,6 +39,15 @@ from torchvision.transforms import functional as F
 from torchvision.utils import draw_bounding_boxes
 
 
+def safe_tqdm_write(msg: str) -> None:
+    # In some notebook/runpy contexts, tqdm.write can crash due to stale/disposed notebook bars.
+    # Fallback to plain print keeps training running and still shows logs.
+    try:
+        tqdm.write(msg)
+    except Exception:
+        print(msg)
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -657,7 +666,7 @@ def main() -> None:
         }
         epoch_progress.set_postfix(postfix)
 
-        tqdm.write(
+        safe_tqdm_write(
             f"Epoch {epoch:02d}/{args.epochs} | "
             f"train_loss={row['loss_total']:.4f} | "
             f"loss_cls={row['loss_classifier']:.4f} | "
