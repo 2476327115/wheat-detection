@@ -14,6 +14,7 @@ import argparse
 import ast
 import os
 import random
+import sys
 import time
 from collections import defaultdict
 from dataclasses import dataclass
@@ -37,6 +38,14 @@ from torchvision.models.detection.backbone_utils import _resnet_fpn_extractor
 from torchvision.ops import box_iou
 from torchvision.transforms import functional as F
 from torchvision.utils import draw_bounding_boxes
+
+
+def make_tqdm(*args, **kwargs):
+    # Colab `!python` runs in a non-interactive stream where tqdm redraw control
+    # characters are printed as many lines. Disable bars there for clean logs.
+    kwargs.setdefault("disable", not sys.stdout.isatty())
+    kwargs.setdefault("dynamic_ncols", True)
+    return tqdm(*args, **kwargs)
 
 
 def safe_tqdm_write(msg: str) -> None:
@@ -240,7 +249,7 @@ def train_one_epoch(
     loss_sums: DefaultDict[str, float] = defaultdict(float)
     step_count = 0
 
-    train_bar = tqdm(loader, desc="Train", leave=False)
+    train_bar = make_tqdm(loader, desc="Train", leave=False)
     for images, targets in train_bar:
         images = [img.to(device) for img in images]
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
@@ -275,7 +284,7 @@ def evaluate_loss(
     loss_sums: DefaultDict[str, float] = defaultdict(float)
     step_count = 0
 
-    for images, targets in tqdm(loader, desc="Val Loss", leave=False):
+    for images, targets in make_tqdm(loader, desc="Val Loss", leave=False):
         images = [img.to(device) for img in images]
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
@@ -302,7 +311,7 @@ def evaluate_inference_count(
     pred_counts: List[float] = []
     gt_counts: List[float] = []
 
-    for images, targets in tqdm(loader, desc="Val", leave=False):
+    for images, targets in make_tqdm(loader, desc="Val", leave=False):
         images = [img.to(device) for img in images]
         outputs = model(images)
         for out, tgt in zip(outputs, targets):
@@ -345,7 +354,7 @@ def evaluate_detection_accuracy(
     matched_total = 0
     gt_total = 0
 
-    for images, targets in tqdm(loader, desc=desc, leave=False):
+    for images, targets in make_tqdm(loader, desc=desc, leave=False):
         images = [img.to(device) for img in images]
         outputs = model(images)
 
@@ -387,7 +396,7 @@ def evaluate_map50(
     all_fp: List[int] = []
     total_gt = 0
 
-    for images, targets in tqdm(loader, desc=desc, leave=False):
+    for images, targets in make_tqdm(loader, desc=desc, leave=False):
         images = [img.to(device) for img in images]
         outputs = model(images)
 
@@ -642,7 +651,7 @@ def main() -> None:
     else:
         print("Per-epoch mode: train only (evaluation runs once after training).")
 
-    epoch_progress = tqdm(range(1, args.epochs + 1), desc="Epochs")
+    epoch_progress = make_tqdm(range(1, args.epochs + 1), desc="Epochs")
     for epoch in epoch_progress:
         epoch_start = time.time()
         train_losses = train_one_epoch(model, train_loader, optimizer, device)
