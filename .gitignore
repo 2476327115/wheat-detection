@@ -8,6 +8,9 @@ outputs_notebook/
 outputs_experiments/
 outputs_experiments_nb/
 outputs_experiments_nb2/
+output/
+output*/
+outputs*/
 
 # Model weights / checkpoints
 *.pt
