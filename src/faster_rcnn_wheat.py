@@ -39,11 +39,13 @@ from torchvision.ops import box_iou
 from torchvision.transforms import functional as F
 from torchvision.utils import draw_bounding_boxes
 
+PROGRESS_DISABLED = False
+
 
 def make_tqdm(*args, **kwargs):
     # Colab `!python` runs in a non-interactive stream where tqdm redraw control
-    # characters are printed as many lines. Disable bars there for clean logs.
-    kwargs.setdefault("disable", not sys.stdout.isatty())
+    # characters are printed as many lines. Allow explicit CLI override too.
+    kwargs.setdefault("disable", PROGRESS_DISABLED or (not sys.stdout.isatty()))
     kwargs.setdefault("dynamic_ncols", True)
     return tqdm(*args, **kwargs)
 
@@ -538,6 +540,7 @@ def save_training_plots(history_df: pd.DataFrame, output_dir: Path) -> None:
 
 
 def main() -> None:
+    global PROGRESS_DISABLED
     parser = argparse.ArgumentParser(description="Train Faster R-CNN on Global Wheat Detection")
     parser.add_argument("--data-dir", type=str, required=True, help="Path containing train.csv and train/")
     parser.add_argument("--epochs", type=int, default=8)
@@ -582,8 +585,14 @@ def main() -> None:
         default="baseline",
         help="Tag saved into training history for experiment comparison.",
     )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable tqdm progress bars (useful in Colab/script logs).",
+    )
     parser.add_argument("--output-dir", type=str, default="outputs")
     args = parser.parse_args()
+    PROGRESS_DISABLED = bool(args.no_progress)
 
     set_seed(args.seed)
 
