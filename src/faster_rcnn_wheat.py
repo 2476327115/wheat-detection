@@ -43,9 +43,8 @@ PROGRESS_DISABLED = False
 
 
 def make_tqdm(*args, **kwargs):
-    # Colab `!python` runs in a non-interactive stream where tqdm redraw control
-    # characters are printed as many lines. Allow explicit CLI override too.
-    kwargs.setdefault("disable", PROGRESS_DISABLED or (not sys.stdout.isatty()))
+    # In notebook runs we want visible widget bars; disable only when explicitly requested.
+    kwargs.setdefault("disable", PROGRESS_DISABLED)
     kwargs.setdefault("dynamic_ncols", True)
     return tqdm(*args, **kwargs)
 
