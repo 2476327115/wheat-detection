@@ -30,7 +30,7 @@ from torch import nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, Dataset
-from tqdm.auto import tqdm
+from tqdm.notebook import tqdm
 from torchvision.models import ResNet50_Weights, ResNet101_Weights, resnet101
 from torchvision.models.detection import FasterRCNN, FasterRCNN_ResNet50_FPN_Weights, fasterrcnn_resnet50_fpn
 from torchvision.models.detection.anchor_utils import AnchorGenerator
