@@ -2,6 +2,8 @@ param(
     [string]$DataDir = "C:\wheat-detection\data",
     [int]$Epochs = 10,
     [int]$BatchSize = 4,
+    [int]$EvalEvery = 1,
+    [int]$EarlyStopPatience = 3,
     [string]$BaseOut = "C:\wheat-detection\outputs_experiments"
 )
 
@@ -12,6 +14,8 @@ python C:\wheat-detection\src\faster_rcnn_wheat.py `
   --data-dir $DataDir `
   --epochs $Epochs `
   --batch-size $BatchSize `
+  --eval-every $EvalEvery `
+  --early-stop-patience $EarlyStopPatience `
   --backbone resnet50 `
   --experiment-tag baseline_r50_default `
   --output-dir "$BaseOut\baseline_r50_default"
@@ -21,6 +25,8 @@ python C:\wheat-detection\src\faster_rcnn_wheat.py `
   --data-dir $DataDir `
   --epochs $Epochs `
   --batch-size $BatchSize `
+  --eval-every $EvalEvery `
+  --early-stop-patience $EarlyStopPatience `
   --backbone resnet50 `
   --anchor-sizes "16,24,32,48,64" `
   --anchor-aspects "0.5,1.0,2.0" `
@@ -32,6 +38,8 @@ python C:\wheat-detection\src\faster_rcnn_wheat.py `
   --data-dir $DataDir `
   --epochs $Epochs `
   --batch-size $BatchSize `
+  --eval-every $EvalEvery `
+  --early-stop-patience $EarlyStopPatience `
   --backbone resnet50 `
   --anchor-sizes "16,24,32,48,64" `
   --use-scale-jitter `
@@ -44,6 +52,8 @@ python C:\wheat-detection\src\faster_rcnn_wheat.py `
   --data-dir $DataDir `
   --epochs $Epochs `
   --batch-size $BatchSize `
+  --eval-every $EvalEvery `
+  --early-stop-patience $EarlyStopPatience `
   --backbone resnet101 `
   --anchor-sizes "16,24,32,48,64" `
   --use-scale-jitter `
