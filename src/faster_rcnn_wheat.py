@@ -39,6 +39,15 @@ from torchvision.transforms import functional as F
 from torchvision.utils import draw_bounding_boxes
 
 
+def safe_tqdm_write(msg: str) -> None:
+    # In some notebook/runpy contexts, tqdm.write can crash due to stale/disposed notebook bars.
+    # Fallback to plain print keeps training running and still shows logs.
+    try:
+        tqdm.write(msg)
+    except Exception:
+        print(msg)
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -547,6 +556,18 @@ def main() -> None:
     parser.add_argument("--use-scale-jitter", action="store_true", help="Enable random scaling augmentation.")
     parser.add_argument("--use-random-crop", action="store_true", help="Enable random crop augmentation.")
     parser.add_argument(
+        "--eval-every",
+        type=int,
+        default=0,
+        help="Evaluate val mAP50 every N epochs during training. 0 disables periodic eval (final eval only).",
+    )
+    parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help="Early stop patience based on periodic val mAP50 checks. 0 disables early stopping.",
+    )
+    parser.add_argument(
         "--experiment-tag",
         type=str,
         default="baseline",
@@ -606,6 +627,8 @@ def main() -> None:
     scheduler = StepLR(optimizer, step_size=4, gamma=0.1)
 
     best_train_loss = float("inf")
+    best_val_map50 = -1.0
+    no_improve_checks = 0
     history: List[Dict[str, float]] = []
 
     print(f"Device: {device}")
@@ -613,7 +636,11 @@ def main() -> None:
     print(f"Backbone: {args.backbone}")
     print(f"Custom anchors: {args.anchor_sizes if args.anchor_sizes else 'default'}")
     print(f"Augmentations: hflip+vflip, scale_jitter={args.use_scale_jitter}, random_crop={args.use_random_crop}")
-    print("Per-epoch mode: train only (evaluation runs once after training).")
+    if args.eval_every > 0:
+        print(f"Periodic eval: every {args.eval_every} epoch(s)")
+        print(f"Early-stop patience (checks): {args.early_stop_patience}")
+    else:
+        print("Per-epoch mode: train only (evaluation runs once after training).")
 
     epoch_progress = tqdm(range(1, args.epochs + 1), desc="Epochs")
     for epoch in epoch_progress:
@@ -649,27 +676,68 @@ def main() -> None:
             "use_random_crop": bool(args.use_random_crop),
             "experiment_tag": args.experiment_tag,
         }
+        # Optional periodic validation during training.
+        periodic_eval = args.eval_every > 0 and (epoch % args.eval_every == 0)
+        if periodic_eval:
+            val_losses = evaluate_loss(model, val_loader, device=device)
+            val_map = evaluate_map50(
+                model, val_loader, device=device, iou_threshold=args.iou_threshold, desc=f"Val mAP50@Ep{epoch:02d}"
+            )
+            row["val_loss_total"] = float(val_losses.get("loss_total", np.nan))
+            row["val_loss_classifier"] = float(val_losses.get("loss_classifier", np.nan))
+            row["val_loss_box_reg"] = float(val_losses.get("loss_box_reg", np.nan))
+            row["val_loss_objectness"] = float(val_losses.get("loss_objectness", np.nan))
+            row["val_loss_rpn_box_reg"] = float(val_losses.get("loss_rpn_box_reg", np.nan))
+            row["val_map50"] = float(val_map.get("ap50", np.nan))
+
+            current_val_map50 = float(val_map.get("ap50", np.nan))
+            if np.isfinite(current_val_map50) and current_val_map50 > best_val_map50:
+                best_val_map50 = current_val_map50
+                no_improve_checks = 0
+                torch.save(model.state_dict(), output_dir / "best_model.pt")
+                safe_tqdm_write(
+                    f"  -> New best val_mAP50={best_val_map50:.4f} at epoch {epoch:02d}. Saved best_model.pt"
+                )
+            else:
+                no_improve_checks += 1
+                safe_tqdm_write(
+                    f"  -> No val_mAP50 improvement (best={best_val_map50:.4f}, checks_without_improve={no_improve_checks})"
+                )
+
         history.append(row)
 
         postfix = {
             "train_loss": f"{row['loss_total']:.4f}",
             "lr": f"{row['lr']:.2e}",
         }
+        if np.isfinite(row.get("val_map50", np.nan)):
+            postfix["val_mAP50"] = f"{row['val_map50']:.4f}"
         epoch_progress.set_postfix(postfix)
 
-        tqdm.write(
+        msg = (
             f"Epoch {epoch:02d}/{args.epochs} | "
             f"train_loss={row['loss_total']:.4f} | "
             f"loss_cls={row['loss_classifier']:.4f} | "
             f"loss_box={row['loss_box_reg']:.4f} | "
             f"loss_obj={row['loss_objectness']:.4f} | "
             f"loss_rpn={row['loss_rpn_box_reg']:.4f} | "
-            f"lr={current_lr:.2e} | epoch_time={epoch_time:.1f}s",
         )
+        if np.isfinite(row.get("val_map50", np.nan)):
+            msg += f"val_mAP50={row['val_map50']:.4f} | "
+        msg += f"lr={current_lr:.2e} | epoch_time={epoch_time:.1f}s"
+        safe_tqdm_write(msg)
 
-        if row["loss_total"] < best_train_loss:
+        # Fallback best-model criterion when periodic val mAP50 is not enabled.
+        if args.eval_every <= 0 and row["loss_total"] < best_train_loss:
             best_train_loss = row["loss_total"]
             torch.save(model.state_dict(), output_dir / "best_model.pt")
+
+        # Early stopping checks are based on periodic validation only.
+        if args.eval_every > 0 and args.early_stop_patience > 0 and no_improve_checks >= args.early_stop_patience:
+            safe_tqdm_write(
+                f"Early stopping triggered at epoch {epoch:02d} (no val_mAP50 improvement in {no_improve_checks} checks)."
+            )
+            break
 
     torch.save(model.state_dict(), output_dir / "last_model.pt")
 

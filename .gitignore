@@ -5,6 +5,32 @@ __pycache__/
 
 outputs/
 outputs_notebook/
+outputs_experiments/
+outputs_experiments_nb/
+outputs_experiments_nb2/
+output/
+output*/
+outputs*/
+
+# Model weights / checkpoints
+*.pt
+*.pth
+*.ckpt
+*.onnx
+
+# Archives and packaged data
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# Large binary artifacts
+*.npy
+*.npz
+*.h5
+*.hdf5
 
 data/
 
