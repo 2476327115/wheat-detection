@@ -5,6 +5,13 @@ __pycache__/
 
 outputs/
 outputs_notebook/
+outputs_experiments/
+outputs_experiments_nb/
+outputs_experiments_nb2/
+
+# Model weights / checkpoints
+*.pt
+*.pth
 
 data/
 
