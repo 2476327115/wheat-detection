@@ -592,6 +592,10 @@ def main() -> None:
     )
     parser.add_argument("--output-dir", type=str, default="outputs")
     args = parser.parse_args()
+    if args.eval_every != 0 or args.early_stop_patience != 0:
+        print("Info: forcing eval-at-end-only mode; periodic eval/early-stop settings are ignored.")
+    args.eval_every = 0
+    args.early_stop_patience = 0
     PROGRESS_DISABLED = bool(args.no_progress)
 
     set_seed(args.seed)
